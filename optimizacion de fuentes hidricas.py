@@ -1,105 +1,137 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-def calcular_distribucion():
+# ---------------------- OBJETIVOS Y REQUERIMIENTOS ------------------------
+
+OBJETIVO = "Distribuir el agua de forma racional según el promedio de consumo de personas para evitar escasez."
+REQUERIMIENTO = "El usuario debe ingresar los litros disponibles y el número de personas por tipo."
+
+# ------------------------- CONSUMO PROMEDIO -------------------------------
+
+# Lista con el tipo de personas
+tipos_persona = ["Hombre", "Mujer", "Niño", "Anciano"]
+
+# Lista con el consumo promedio (en litros por día) [Hombre, Mujer, Niño, Anciano]
+consumo_promedio = [50, 45, 30, 40]
+
+# ------------------------- FUNCIONES DEL PROGRAMA -------------------------
+
+def crear_interfaz():
+    root = tk.Tk()
+    root.title("Distribución Inteligente del Agua")
+    root.configure(bg="#e7f0fa")
+
+    crear_encabezado(root)
+    mostrar_info_consumo(root)
+    entradas = crear_formulario(root)
+    crear_boton_calculo(root, entradas)
+    area_resultado = crear_area_resultado(root)
+
+    root.mainloop()
+
+def crear_encabezado(root):
+    ttk.Label(root, text="Sistema de Distribución de Agua", font=("Segoe UI", 18, "bold"),
+              background="#e7f0fa", foreground="#003366").pack(pady=10)
+    ttk.Label(root, text=f"Objetivo: {OBJETIVO}", background="#e7f0fa", font=("Segoe UI", 10)).pack()
+    ttk.Label(root, text=f"Requerimiento: {REQUERIMIENTO}", background="#e7f0fa", font=("Segoe UI", 10)).pack()
+
+def mostrar_info_consumo(root):
+    frame = ttk.Frame(root, padding=10)
+    frame.pack()
+    ttk.Label(frame, text="Promedio de consumo diario por persona:", font=("Segoe UI", 11, "underline")).pack(anchor="w")
+    for tipo, consumo in zip(tipos_persona, consumo_promedio):
+        ttk.Label(frame, text=f"  • {tipo}: {consumo} L", font=("Segoe UI", 10)).pack(anchor="w")
+
+def crear_formulario(root):
+    frame = ttk.Frame(root, padding=10)
+    frame.pack()
+    etiquetas = ["Litros de agua disponibles:"] + [f"Número de {tipo.lower()}s:" for tipo in tipos_persona]
+    entradas = []
+
+    for i, etiqueta in enumerate(etiquetas):
+        ttk.Label(frame, text=etiqueta).grid(row=i, column=0, sticky="e", padx=5, pady=4)
+        entrada = ttk.Entry(frame, width=20)
+        entrada.grid(row=i, column=1, padx=5, pady=4)
+        entradas.append(entrada)
+
+    return entradas
+
+def crear_boton_calculo(root, entradas):
+    ttk.Button(root, text="Calcular distribución", command=lambda: calcular_distribucion(entradas)).pack(pady=10)
+
+def crear_area_resultado(root):
+    global resultado_text
+    frame = ttk.Frame(root, padding=10)
+    frame.pack()
+    resultado_text = tk.Text(frame, height=12, width=70, state="disabled", bg="#f4f9ff", font=("Consolas", 10))
+    resultado_text.pack()
+    return resultado_text
+
+def leer_datos(entradas):
     try:
-        agua_total = float(entry_agua.get())
-        hombres = int(entry_hombres.get())
-        mujeres = int(entry_mujeres.get())
-        ninos = int(entry_ninos.get())
-        ancianos = int(entry_ancianos.get())
+        litros = float(entradas[0].get())
+        personas = [int(entrada.get()) for entrada in entradas[1:]]
+        return litros, personas
     except ValueError:
-        messagebox.showerror("Error", "Por favor, introduce valores numéricos válidos.")
+        messagebox.showerror("Error", "Introduce valores válidos en todos los campos.")
+        return None, None
+
+def construir_matriz_consumo(personas):
+    matriz = []
+    for i in range(len(personas)):
+        fila = [personas[i], consumo_promedio[i], personas[i] * consumo_promedio[i]]
+        matriz.append(fila)
+    return matriz
+
+def calcular_total(matriz):
+    total = 0
+    for fila in matriz:
+        total += fila[2]
+    return total
+
+def ajustar_distribucion(matriz, litros_disponibles, total_necesario):
+    proporcion = litros_disponibles / total_necesario
+    distribucion = []
+    for fila in matriz:
+        litros_por_persona = fila[1] * proporcion
+        distribucion.append(round(litros_por_persona, 2))
+    return distribucion, proporcion
+
+def mostrar_resultados(matriz, litros_disponibles, total_necesario, distribucion=None):
+    resultado_text.config(state="normal")
+    resultado_text.delete("1.0", tk.END)
+
+    resultado_text.insert(tk.END, f"Total de litros disponibles: {litros_disponibles} L\n")
+    resultado_text.insert(tk.END, f"Demanda total calculada: {total_necesario} L\n\n")
+
+    for i, fila in enumerate(matriz):
+        nombre = tipos_persona[i]
+        if distribucion:
+            resultado_text.insert(tk.END, f"{nombre:<8}: {fila[0]} personas x {distribucion[i]} L = {fila[0]*distribucion[i]:.2f} L\n")
+        else:
+            resultado_text.insert(tk.END, f"{nombre:<8}: {fila[0]} personas x {fila[1]} L = {fila[2]:.2f} L\n")
+
+    if distribucion:
+        resultado_text.insert(tk.END, "\nDistribución ajustada debido a escasez de agua.")
+    else:
+        resultado_text.insert(tk.END, "\nEl agua es suficiente. Distribución estándar aplicada.")
+
+    resultado_text.config(state="disabled")
+
+def calcular_distribucion(entradas):
+    litros, personas = leer_datos(entradas)
+    if litros is None or personas is None:
         return
 
-    consumo = {
-        "hombre": 50,
-        "mujer": 45,
-        "niño": 30,
-        "anciano": 40
-    }
+    matriz = construir_matriz_consumo(personas)
+    total_necesario = calcular_total(matriz)
 
-    demanda_total = (hombres * consumo["hombre"] +
-                     mujeres * consumo["mujer"] +
-                     ninos * consumo["niño"] +
-                     ancianos * consumo["anciano"])
-
-    resultado = f"Demanda total: {demanda_total:.2f} litros\n"
-
-    if agua_total >= demanda_total:
-        resultado += "\nEl agua es suficiente.\nDistribución por persona:\n"
-        resultado += f"  Hombres: {consumo['hombre']} L\n"
-        resultado += f"  Mujeres: {consumo['mujer']} L\n"
-        resultado += f"  Niños: {consumo['niño']} L\n"
-        resultado += f"  Ancianos: {consumo['anciano']} L\n"
+    if litros >= total_necesario:
+        mostrar_resultados(matriz, litros, total_necesario)
     else:
-        proporcion = agua_total / demanda_total
-        resultado += f"\nEl agua no es suficiente.\nDistribución ajustada ({proporcion*100:.2f}%):\n"
-        resultado += f"  Hombres: {consumo['hombre'] * proporcion:.2f} L\n"
-        resultado += f"  Mujeres: {consumo['mujer'] * proporcion:.2f} L\n"
-        resultado += f"  Niños: {consumo['niño'] * proporcion:.2f} L\n"
-        resultado += f"  Ancianos: {consumo['anciano'] * proporcion:.2f} L\n"
+        distribucion_ajustada, proporcion = ajustar_distribucion(matriz, litros, total_necesario)
+        mostrar_resultados(matriz, litros, total_necesario, distribucion_ajustada)
 
-    text_resultado.config(state="normal")
-    text_resultado.delete("1.0", tk.END)
-    text_resultado.insert(tk.END, resultado)
-    text_resultado.config(state="disabled")
+# ----------------------------- INICIO DEL PROGRAMA ---------------------------
 
-# --- INTERFAZ GRÁFICA MEJORADA ---
-root = tk.Tk()
-root.title("Sistema Inteligente de Distribución de Agua")
-root.configure(bg="#e6f2ff")
-
-# Estilo
-style = ttk.Style()
-style.configure("TLabel", font=("Segoe UI", 11), background="#e6f2ff")
-style.configure("TButton", font=("Segoe UI", 11), padding=6)
-style.configure("TEntry", padding=4)
-
-# Título
-titulo = ttk.Label(root, text="Gestión Inteligente de Agua", font=("Segoe UI", 16, "bold"), background="#e6f2ff", foreground="#004080")
-titulo.pack(pady=(10, 5))
-
-# Sección informativa de consumos promedio
-info_frame = ttk.Frame(root, padding=10)
-info_frame.pack()
-
-info_text = (
-    "Promedio de consumo diario por persona:\n"
-    "  • Hombre:   50 litros\n"
-    "  • Mujer:    45 litros\n"
-    "  • Niño:     30 litros\n"
-    "  • Anciano:  40 litros"
-)
-label_info = ttk.Label(info_frame, text=info_text, justify="left", font=("Segoe UI", 10), foreground="#003366")
-label_info.pack()
-
-# Marco de entrada
-frame_entrada = ttk.Frame(root, padding=15)
-frame_entrada.pack()
-
-def agregar_entrada(etiqueta, fila):
-    lbl = ttk.Label(frame_entrada, text=etiqueta)
-    lbl.grid(row=fila, column=0, sticky="e", padx=5, pady=5)
-    entrada = ttk.Entry(frame_entrada, width=20)
-    entrada.grid(row=fila, column=1, padx=5, pady=5)
-    return entrada
-
-entry_agua = agregar_entrada("Litros de agua disponibles:", 0)
-entry_hombres = agregar_entrada("Número de hombres:", 1)
-entry_mujeres = agregar_entrada("Número de mujeres:", 2)
-entry_ninos = agregar_entrada("Número de niños:", 3)
-entry_ancianos = agregar_entrada("Número de ancianos:", 4)
-
-# Botón
-btn_calcular = ttk.Button(root, text="Calcular distribución", command=calcular_distribucion)
-btn_calcular.pack(pady=10)
-
-# Marco de resultados
-frame_resultado = ttk.Frame(root, padding=10)
-frame_resultado.pack()
-
-text_resultado = tk.Text(frame_resultado, height=10, width=60, state="disabled", bg="#f2f9ff", font=("Consolas", 10))
-text_resultado.pack()
-
-root.mainloop()
+crear_interfaz()
